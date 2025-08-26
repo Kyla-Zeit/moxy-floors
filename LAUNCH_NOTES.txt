@@ -1,0 +1,7 @@
+* Launch polish applied *
+- Image optimization (JPEG quality ~82, PNG optimized)
+- SEO & social meta tags (OG/Twitter) added to <head>
+- Accessible skip link + visible focus outlines
+- Respects prefers-reduced-motion
+- robots.txt + sitemap.xml (replace example URL)
+- Minified CSS/JS (backups saved as style.src.css, script.src.js)
