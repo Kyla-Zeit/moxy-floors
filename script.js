@@ -1,45 +1,55 @@
-// script.js
+// script.js (iPad/Safari safe)
 document.addEventListener('DOMContentLoaded', () => {
-  /* -------------------- Lightbox -------------------- */
-  GLightbox({
-    selector: '.glightbox',
-    slideEffect: 'fade',
-    touchNavigation: true,
-    loop: true
-  });
+  /* -------------------- Lightbox (guarded) -------------------- */
+  try {
+    if (window.GLightbox) {
+      GLightbox({
+        selector: '.glightbox',
+        slideEffect: 'fade',
+        touchNavigation: true,
+        loop: true
+      });
+    }
+  } catch (e) {
+    console.warn('GLightbox init failed:', e);
+  }
 
   /* -------------------- Navbar scroll style -------------------- */
   const navBar = document.querySelector('.navbar');
   window.addEventListener('scroll', () => {
     if (window.scrollY > 40) navBar.classList.add('scrolled');
     else navBar.classList.remove('scrolled');
-  });
+  }, { passive: true });
 
-  /* -------------------- GSAP animations -------------------- */
-  gsap.registerPlugin(ScrollTrigger);
+  /* -------------------- GSAP animations (guarded) -------------------- */
+  if (window.gsap) {
+    if (window.ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
 
-  // Section content fade/slide
-  gsap.utils.toArray('.section').forEach(section => {
-    gsap.from(section.querySelectorAll('.cards .card, .grid img, .step, .contact-wrapper > *'), {
-      opacity: 0,
-      y: 40,
-      stagger: 0.15,
-      scrollTrigger: { trigger: section, start: 'top 80%' }
+    // Section content fade/slide
+    gsap.utils.toArray('.section').forEach(section => {
+      const targets = section.querySelectorAll('.cards .card, .grid img, .step, .contact-wrapper > *');
+      if (!targets.length) return;
+      gsap.from(targets, {
+        opacity: 0,
+        y: 40,
+        stagger: 0.15,
+        scrollTrigger: window.ScrollTrigger ? { trigger: section, start: 'top 80%' } : undefined
+      });
     });
-  });
 
-  // Section entrance init
-  gsap.utils.toArray('section.section').forEach(sec => {
-    sec.classList.add('section-init');
-    gsap.to(sec, {
-      opacity: 1,
-      y: 0,
-      duration: 0.9,
-      ease: 'power3.out',
-      scrollTrigger: { trigger: sec, start: 'top 80%' },
-      onStart: () => sec.classList.remove('section-init')
+    // Section entrance init
+    gsap.utils.toArray('section.section').forEach(sec => {
+      sec.classList.add('section-init');
+      gsap.to(sec, {
+        opacity: 1,
+        y: 0,
+        duration: 0.9,
+        ease: 'power3.out',
+        scrollTrigger: window.ScrollTrigger ? { trigger: sec, start: 'top 80%' } : undefined,
+        onStart: () => sec.classList.remove('section-init')
+      });
     });
-  });
+  }
 
   /* -------------------- Year -------------------- */
   const y = document.getElementById('year');
@@ -48,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
   /* -------------------- Mobile menu -------------------- */
   const hamburger = document.querySelector('.hamburger');
   const navLinks  = document.querySelector('.nav-links');
-  const mqlDesktop = window.matchMedia('(min-width: 801px)');
 
   function openMenu() {
     navLinks.classList.add('show');
@@ -70,30 +79,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (hamburger && navLinks) {
-    // Toggle on burger
-    hamburger.addEventListener('click', toggleMenu);
+    // Toggle on burger (click + touch for iPad)
+    const onBurger = (e) => { e.preventDefault(); e.stopPropagation(); toggleMenu(); };
+    hamburger.addEventListener('click', onBurger, { passive: false });
+    hamburger.addEventListener('touchstart', onBurger, { passive: false });
 
     // Close when a nav link is clicked
-    navLinks.querySelectorAll('a').forEach(a =>
-      a.addEventListener('click', closeMenu)
-    );
+    navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
 
     // Close on click outside the panel
-    document.addEventListener('click', (e) => {
+    const outside = (e) => {
       if (!navLinks.classList.contains('show')) return;
       const inside = navLinks.contains(e.target) || hamburger.contains(e.target);
       if (!inside) closeMenu();
-    });
+    };
+    document.addEventListener('click', outside, { passive: true });
+    document.addEventListener('touchstart', outside, { passive: true });
 
     // Close on Esc
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeMenu();
-    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
-    // Close when returning to desktop
-    mqlDesktop.addEventListener('change', (e) => {
-      if (e.matches) closeMenu();
-    });
+    // Close when returning to desktop (Safari fallback for matchMedia)
+    const mqlDesktop = window.matchMedia('(min-width: 801px)');
+    const mqHandler = (e) => { if (e.matches) closeMenu(); };
+    if (mqlDesktop.addEventListener) mqlDesktop.addEventListener('change', mqHandler);
+    else if (mqlDesktop.addListener) mqlDesktop.addListener(mqHandler); // older iPad Safari
 
     // Close after in-page hash navigation
     window.addEventListener('hashchange', closeMenu);
@@ -107,12 +117,12 @@ document.addEventListener('DOMContentLoaded', () => {
       cursor.style.left = e.clientX + 'px';
     });
     document.querySelectorAll('a, button').forEach(el => {
-      el.addEventListener('mouseenter', () => {
-        cursor.style.transform = 'translate(-50%, -50%) scale(1.8)';
-      });
-      el.addEventListener('mouseleave', () => {
-        cursor.style.transform = 'translate(-50%, -50%) scale(1)';
-      });
+      el.addEventListener('mouseenter', () =>
+        cursor.style.transform = 'translate(-50%, -50%) scale(1.8)'
+      );
+      el.addEventListener('mouseleave', () =>
+        cursor.style.transform = 'translate(-50%, -50%) scale(1)'
+      );
     });
 
     // Cursor color inversion on bright/blue UI
@@ -126,14 +136,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* -------------------- Tilt -------------------- */
-  VanillaTilt.init(document.querySelectorAll('[data-tilt]'), {
-    perspective: 1000,
-    glare: true,
-    'max-glare': 0.15,
-    scale: 1.05,
-    speed: 600
-  });
+  /* -------------------- Tilt (guarded) -------------------- */
+  try {
+    if (window.VanillaTilt) {
+      VanillaTilt.init(document.querySelectorAll('[data-tilt]'), {
+        perspective: 1000,
+        glare: true,
+        'max-glare': 0.15,
+        scale: 1.05,
+        speed: 600
+      });
+    }
+  } catch (e) {
+    console.warn('VanillaTilt init failed:', e);
+  }
 
   /* -------------------- Form -------------------- */
   const form = document.querySelector('.contact-form');
